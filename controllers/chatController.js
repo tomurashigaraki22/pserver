@@ -26,12 +26,14 @@ export const SendMessage = async (req, res) => {
       message,
     });
     const userSocketId = getRecipientSocketId(user._id);
-    io.to(userSocketId).emit("newUserMessage", {
+    io.to(userSocketId).emit("newMessage", {
       message,
       sender: newMessage.sender,
     });
+    console.log(userSocketId);
     io.emit("adminMessage", {
       message,
+      sender: newMessage.sender,
     });
     res.status(201).json({ status: "Chat sent", message });
   } catch (err) {
@@ -74,6 +76,43 @@ export const FetchMessagesForAdmins = async (req, res) => {
       })
       .select("-conversationId -_id -__v");
     res.status(200).json({ allMessages });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+export const sendAdminMessages = async (req, res) => {
+  try {
+    const { message, recipientEmail } = req.body;
+    console.log(req.body);
+    if (!message || !recipientEmail)
+      return res.status(400).json({ message: "Missing required parameters" });
+    const userExists = await userModel.findOne({ email: recipientEmail });
+    if (!userExists) return res.status(404).json({ message: "User not found" });
+    let convoExists = await conversationModel.findOne({
+      senderEmail: recipientEmail,
+    });
+    let convoId;
+    if (convoExists) {
+      convoId = convoExists._id;
+    } else {
+      const newConvo = await conversationModel.create({
+        senderEmail: recipientEmail,
+        userId: userExists._id,
+      });
+      convoId = newConvo._id;
+    }
+    const newMessage = await messageModel.create({
+      conversationId: convoId,
+      message,
+      sender: "Support",
+    });
+    const recipientSocketId = getRecipientSocketId(userExists._id);
+    io.to(recipientSocketId).emit("newMessage", {
+      message,
+      sender: newMessage.sender,
+    });
+    io.emit("adminMessage", { message, sender: newMessage.sender });
+    res.status(200).json({ newMessage });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
