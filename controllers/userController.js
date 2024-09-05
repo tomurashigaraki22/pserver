@@ -94,11 +94,31 @@ export const getBalance = async (req, res) => {
 export const getInevestmetPlanAmount = async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email) return res.status(400).json({ message: "Email is required" });
+
+    // Check if email was provided
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    // Find user by email
     const user = await userModel.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User not found" });
-    res.status(200).json({ plan: user.plan, amount: user.amount });
+
+    // If user is not found, return 404
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // If user is found, send the plan and amount
+    return res.status(200).json({
+      plan: user.plan,
+      amount: user.amount,
+    });
   } catch (err) {
-    res.status(500).json({ message: "Internal server error" });
+    // Log the error for debugging
+    console.error("Error fetching user investment details:", err);
+
+    // Return a generic 500 Internal Server Error
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
+
