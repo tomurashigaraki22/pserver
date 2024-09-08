@@ -22,15 +22,20 @@ const userSchema = new Schema({
     type: String,
     required: false,
   },
-  amount: {
-    type: String,
-    required: true,
-    default: "0",
-  },
   balance: {
     type: Number,
     required: true,
-    default: 0.0,
+    default: 10.50,
+  },
+  shares: {
+    type: String,
+    required: true,
+    default: 0,
+  },
+  amount: {
+    type: Number,
+    required: true,
+    default: 20,
   },
   transactions: [
     { type: mongoose.Schema.Types.ObjectId, ref: "transactionModel" },
