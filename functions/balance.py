@@ -7,7 +7,7 @@ def update_balance():
         amount = float(request.form.get("amount"))
         username = request.form.get("username")
 
-        if not email or not amount or not username:
+        if not email or not amount:
             return jsonify({"message": "Invalid input", "status": 400}), 400
 
         conn = get_db_connection()
@@ -15,8 +15,8 @@ def update_balance():
 
         # Check if the user exists in users_db
         cur.execute("""
-            SELECT * FROM users_db WHERE username = %s AND email = %s
-        """, (username, email))
+            SELECT * FROM users_db WHERE email = %s
+        """, (email))
         user = cur.fetchone()
 
         if user is not None:
