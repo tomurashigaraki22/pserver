@@ -3,6 +3,7 @@ from flask import request, jsonify
 import bcrypt
 import jwt
 import os
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -64,27 +65,65 @@ def signup():
         print(e)
         return jsonify({"message": "Error registering user", "status": 500}), 500
     
+def calculate_earnings(investment_amount, days_passed):
+    daily_earnings = (investment_amount * 1.8) / 7
+    print(f"DAILY*TIME: {daily_earnings} {days_passed}")
+    return daily_earnings * days_passed
+
+
 def get_balance():
     email = request.form.get('email')
 
     if not email:
         return jsonify({"status": 400, "message": "Email is required"}), 400
-    
+
     conn = get_db_connection()
     cur = conn.cursor()
 
     try:
-        # Fetch user's balance
-        cur.execute("""
-            SELECT balance FROM balance_db WHERE email = %s
-        """, (email,))
+        # Call the get_investment_plan_amount function to get plan and amount
+        plan_amount_response = get_investment_plan_amount()
+        if plan_amount_response[1] != 200:
+            return plan_amount_response  # If there was an issue, return the error
+        
+        plan_amount_data = plan_amount_response[0].get_json()
+        print(f"W: {plan_amount_data}")
+        investment_amount = plan_amount_data.get("amount")
 
+        # Fetch user's balance and last update time
+        cur.execute("""
+            SELECT balance, last_update 
+            FROM balance_db
+            WHERE email = %s
+        """, (email,))
+        
         result = cur.fetchone()
 
         if result is None:
             return jsonify({"status": 404, "message": "No balance found for this email"}), 404
 
-        balance = result[0]
+        balance, last_update = result
+
+        # Calculate days passed since the last update
+        last_update = datetime.strptime(str(last_update), '%Y-%m-%d %H:%M:%S')
+        now = datetime.utcnow()
+        days_passed = (now - last_update).days
+        print(f"DAYS: {days_passed}")
+
+        # If days have passed, calculate earnings and update balance
+        if days_passed > 0:
+            earnings = calculate_earnings(investment_amount, days_passed)
+            balance += earnings
+
+            # Update the balance and last_update in the database
+            cur.execute("""
+                UPDATE balance_db 
+                SET balance = %s, last_update = %s 
+                WHERE email = %s
+            """, (balance, now, email))
+
+            conn.commit()
+
         return jsonify({"status": 200, "balance": balance}), 200
 
     except Exception as e:
@@ -94,7 +133,6 @@ def get_balance():
     finally:
         cur.close()
         conn.close()
-
 
 def get_investment_plan_amount():
     email = request.form.get("email")
